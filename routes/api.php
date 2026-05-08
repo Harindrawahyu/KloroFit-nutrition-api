@@ -20,11 +20,9 @@ Route::prefix('v1')->group(function () {
 
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
-    // Route::post('/social-login', [AuthController::class, 'socialLogin']);
-    // Route::post('/verify-email', [AuthController::class, 'verifyEmail']);
 
     // Protected routes
-    Route::middleware(['auth:sanctum', 'verified'])->group(function () {
+    Route::middleware(['auth:sanctum'])->group(function () {
         Route::post('/change-password', [AuthController::class, 'changePassword']);
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::post('/logout-all', [AuthController::class, 'logoutAll']);

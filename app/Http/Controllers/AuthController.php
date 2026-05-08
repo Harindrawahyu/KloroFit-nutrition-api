@@ -7,8 +7,8 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Hash;
-use Laravel\Sanctum\PersonalAccessToken;
 use Illuminate\Support\Facades\Validator;
+
 
 class AuthController extends Controller
 {
@@ -22,7 +22,6 @@ class AuthController extends Controller
                 'name' => 'required|string|max:255',
                 'email' => 'required|string|email|max:255|unique:users',
                 'password' => 'required|string|min:6|confirmed',
-                'device_name' => 'required|string',
             ]);
 
             if ($validator->fails()) {
@@ -33,16 +32,14 @@ class AuthController extends Controller
                 ], 422);
             }
 
-            $deviceName = $request->header('User-Agent')
-                ?? $request->input('device_name')
-                ?? 'unkown device!, please register with another device';
-
             // Create user
             $user = User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => Hash::make($request->password),
             ]);
+
+            $deviceName = $request->header('User-Agent') ?? 'Unkown Device';
 
             // Generate token
             $token = $user->createToken(
@@ -65,7 +62,7 @@ class AuthController extends Controller
                     'token_type' => 'Bearer',
                     'expires_in' => now()->addDays(30)->timestamp
                 ]
-            ], 201);
+            ], 200);
         } catch (\Exception $e) {
             return response()->json([
                 'success' => false,
@@ -86,7 +83,6 @@ class AuthController extends Controller
             $validator = Validator::make($request->all(), [
                 'email' => 'required|email',
                 'password' => 'required|string|min:6',
-                'device_name' => 'required|string'
             ]);
 
             if ($validator->fails()) {
@@ -96,11 +92,6 @@ class AuthController extends Controller
                     'errors' => $validator->errors()
                 ], 422);
             }
-
-            $deviceName = $request->header('User-Agent')
-                ?? $request->input('device_name')
-                ?? 'unkown device!, please register with another device that you may know.';
-
 
             // Cek kredensial
             $user = User::where('email', $request->email)->first();
@@ -112,8 +103,10 @@ class AuthController extends Controller
                 ], 401);
             }
 
-            // Hapus token lama untuk device yang sama (optional)
-            $user->tokens()->where('name', $request->$deviceName)->delete();
+            // Hapus token lama
+            $user->tokens()->delete();
+
+            $deviceName = $request->header('User-Agent') ?? 'Unkown device';
 
             // Generate token baru
             $token = $user->createToken(
@@ -145,82 +138,27 @@ class AuthController extends Controller
             ], 500);
         }
     }
+
     /**
      * Logout user (revoke current token)
      */
     public function logout(Request $request)
     {
         try {
-            $user = $request->user();
-            $token = $user->currentAccessToken();
 
-            if ($token && $token instanceof PersonalAccessToken) {
-                $token->delete();
-            }
+            $user = $request->user();
+
+            // delete all token when user choose to logout to all devices
+            if ($request->input('all_devices')) {
+                $user->tokens()->delete();
+            } else {
+                // only delete current token when user logout  
+                $user->currentAccessToken()->delete();
+            };
 
             return response()->json([
                 'success' => true,
                 'message' => 'Logout successful'
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Something went wrong',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Logout from all devices
-     */
-    public function logoutAll(Request $request)
-    {
-        try {
-            // Revoke all tokens
-            $request->user()->tokens()->delete();
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Logged out from all devices successfully'
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Something went wrong',
-                'error' => $e->getMessage()
-            ], 500);
-        }
-    }
-
-    /**
-     * Refresh token
-     */
-    public function refreshToken(Request $request)
-    {
-        try {
-            $user = $request->user();
-            $currentToken = $request->user()->currentAccessToken();
-
-            if ($currentToken && $currentToken instanceof PersonalAccessToken) {
-                $currentToken->delete();
-            }
-
-            // Create new token
-            $newToken = $user->createToken(
-                $currentToken->name,
-                ['*'],
-                now()->addDays(30)
-            );
-
-            return response()->json([
-                'success' => true,
-                'message' => 'Token refreshed successfully',
-                'data' => [
-                    'token' => $newToken->plainTextToken,
-                    'token_type' => 'Bearer',
-                    'expires_at' => $newToken->accessToken->expires_at,
-                ]
             ], 200);
         } catch (\Exception $e) {
             return response()->json([
