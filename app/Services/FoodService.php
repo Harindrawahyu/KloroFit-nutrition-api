@@ -7,7 +7,6 @@ use App\Models\SummaryFood;
 use App\Models\NutritionLibrary;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use App\Enums\MealType;
 
 class FoodService
 {
@@ -141,14 +140,14 @@ class FoodService
             ->get();
     }
 
-    public function createBulkFoods(int $userId, array $foodsData)
+    public function createBulkFoods(array $foodsData)
     {
         $createdFoods = collect(); // Buat collection kosong untuk menampung model yang baru dibuat
 
         foreach ($foodsData as $foodData) {
             // Gunakan metode mass assignment atau satu per satu
             $food = new UserFood([
-                'user_id' => $userId['user_id'],
+                'user_id' => $foodData['user_id'],
                 'nutrition_library_id' => $foodData['nutrition_library_id'],
                 'meal_type' => $foodData['meal_type'],
                 'date' => $foodData['date'],
